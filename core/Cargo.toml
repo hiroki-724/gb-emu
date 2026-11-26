@@ -1,0 +1,10 @@
+[package]
+name = "gb-core"
+description = "ゲームボーイ（DMG）エミュレータ本体。外部依存なし・I/O なし"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]

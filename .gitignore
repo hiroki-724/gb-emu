@@ -1,0 +1,7 @@
+/target/
+/test-roms/
+/web/pkg/
+*.sav
+*.gb
+*.gbc
+.DS_Store
