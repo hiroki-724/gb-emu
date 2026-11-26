@@ -1,0 +1,9 @@
+[package]
+name = "cli"
+description = "ヘッドレス実行・テストROMランナー"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gb-core = { path = "../core" }
+png = "0.17"
