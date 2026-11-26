@@ -12,6 +12,8 @@ use crate::timer::Timer;
 
 /// シリアルクロック（8192 Hz）になる内部カウンタのビット（M サイクル単位で bit6）
 const SERIAL_CLOCK_BIT: u16 = 1 << 6;
+/// APU のフレームシーケンサ（512 Hz）を進める内部カウンタのビット（M サイクル単位で bit10 = DIV の bit4）
+const APU_FRAME_BIT: u16 = 1 << 10;
 
 /// OAM DMA（0xFF46）の状態
 #[derive(Clone, Debug, Default)]
@@ -88,7 +90,8 @@ impl Bus {
         if self.timer.tick() {
             self.intf |= interrupts::TIMER;
         }
-        self.clock_serial(counter_before);
+        self.clock_from_divider(counter_before);
+        self.apu.tick();
 
         self.tick_dma();
         self.cart.tick();
@@ -101,11 +104,14 @@ impl Bus {
         self.intf |= late;
     }
 
-    /// 内部カウンタの立ち下がりでシリアルを 1 ビット進める
-    fn clock_serial(&mut self, counter_before: u16) {
-        let falling = counter_before & !self.timer.counter() & SERIAL_CLOCK_BIT != 0;
-        if falling && self.serial.clock() {
+    /// 内部カウンタのビットの立ち下がりを時計にしている回路（シリアルと APU）を進める
+    fn clock_from_divider(&mut self, counter_before: u16) {
+        let falling = counter_before & !self.timer.counter();
+        if falling & SERIAL_CLOCK_BIT != 0 && self.serial.clock() {
             self.intf |= interrupts::SERIAL;
+        }
+        if falling & APU_FRAME_BIT != 0 {
+            self.apu.frame_sequencer_clock();
         }
     }
 
@@ -201,8 +207,8 @@ impl Bus {
             0xFF04..=0xFF07 => {
                 let counter_before = self.timer.counter();
                 self.timer.write(addr, value);
-                // DIV への書き込みで内部カウンタが 0 になると、シリアルクロックにも立ち下がりが起きる
-                self.clock_serial(counter_before);
+                // DIV への書き込みで内部カウンタが 0 になると、シリアルと APU の時計にも立ち下がりが起きる
+                self.clock_from_divider(counter_before);
             }
             0xFF0F => self.intf = value & 0x1F,
             0xFF10..=0xFF3F => self.apu.write(addr, value),

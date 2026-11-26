@@ -9,18 +9,18 @@ PASS	blargg/cpu_instrs/individual/08-misc instrs.gb
 PASS	blargg/cpu_instrs/individual/09-op r,r.gb
 PASS	blargg/cpu_instrs/individual/10-bit ops.gb
 PASS	blargg/cpu_instrs/individual/11-op a,(hl).gb
-FAIL	blargg/dmg_sound/rom_singles/01-registers.gb
-FAIL	blargg/dmg_sound/rom_singles/02-len ctr.gb
-FAIL	blargg/dmg_sound/rom_singles/03-trigger.gb
-FAIL	blargg/dmg_sound/rom_singles/04-sweep.gb
-FAIL	blargg/dmg_sound/rom_singles/05-sweep details.gb
-FAIL	blargg/dmg_sound/rom_singles/06-overflow on trigger.gb
-FAIL	blargg/dmg_sound/rom_singles/07-len sweep period sync.gb
-FAIL	blargg/dmg_sound/rom_singles/08-len ctr during power.gb
-FAIL	blargg/dmg_sound/rom_singles/09-wave read while on.gb
-FAIL	blargg/dmg_sound/rom_singles/10-wave trigger while on.gb
-FAIL	blargg/dmg_sound/rom_singles/11-regs after power.gb
-FAIL	blargg/dmg_sound/rom_singles/12-wave write while on.gb
+PASS	blargg/dmg_sound/rom_singles/01-registers.gb
+PASS	blargg/dmg_sound/rom_singles/02-len ctr.gb
+PASS	blargg/dmg_sound/rom_singles/03-trigger.gb
+PASS	blargg/dmg_sound/rom_singles/04-sweep.gb
+PASS	blargg/dmg_sound/rom_singles/05-sweep details.gb
+PASS	blargg/dmg_sound/rom_singles/06-overflow on trigger.gb
+PASS	blargg/dmg_sound/rom_singles/07-len sweep period sync.gb
+PASS	blargg/dmg_sound/rom_singles/08-len ctr during power.gb
+PASS	blargg/dmg_sound/rom_singles/09-wave read while on.gb
+PASS	blargg/dmg_sound/rom_singles/10-wave trigger while on.gb
+PASS	blargg/dmg_sound/rom_singles/11-regs after power.gb
+PASS	blargg/dmg_sound/rom_singles/12-wave write while on.gb
 PASS	blargg/halt_bug.gb
 PASS	blargg/instr_timing/instr_timing.gb
 PASS	blargg/mem_timing-2/rom_singles/01-read_timing.gb

@@ -3,7 +3,7 @@
 //! 外部クレートにも OS の入出力にも依存しない。フロントエンドとのやり取りは
 //! - 画面: 160×144 のフレームバッファ（各ピクセル 0〜3 の濃淡）
 //! - 入力: ボタンの押下状態
-//! - 音: サンプル列（M7 で実装）
+//! - 音: ステレオのサンプル列
 //!
 //! だけで行う。
 
@@ -85,6 +85,17 @@ impl GameBoy {
     /// シリアルポートに送信されたバイト列を取り出す
     pub fn take_serial_output(&mut self) -> Vec<u8> {
         self.bus.serial.take_output()
+    }
+
+    /// 音声の出力サンプルレート（Hz）を設定する。設定するまで音声は生成されない。
+    /// 0 以下を渡すと生成を止める
+    pub fn set_audio_sample_rate(&mut self, hz: f64) {
+        self.bus.apu.set_sample_rate(hz);
+    }
+
+    /// 溜まっている音声サンプル（左右交互の f32、-1.0〜1.0）を取り出す
+    pub fn take_audio_samples(&mut self) -> Vec<f32> {
+        self.bus.apu.take_samples()
     }
 
     /// 起動からの経過 M サイクル数

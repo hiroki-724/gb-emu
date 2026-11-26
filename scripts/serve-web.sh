@@ -4,7 +4,7 @@
 #   scripts/serve-web.sh            ビルドして http://localhost:8000 で配信する
 #   scripts/serve-web.sh --out DIR  ビルドして DIR に公開用ファイル一式を置くだけ（配信しない）
 #
-# 公開用ファイルは index.html / style.css / app.js / pkg/（wasm-pack の出力）。
+# 公開用ファイルは index.html / style.css / app.js / audio-worklet.js / pkg/（wasm-pack の出力）。
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -27,7 +27,7 @@ else
 fi
 
 mkdir -p "$OUT/pkg"
-cp web/index.html web/style.css web/app.js "$OUT/"
+cp web/index.html web/style.css web/app.js web/audio-worklet.js "$OUT/"
 cp web/pkg/gb_web.js web/pkg/gb_web_bg.wasm "$OUT/pkg/"
 echo "公開用ファイルを $OUT に置きました"
 

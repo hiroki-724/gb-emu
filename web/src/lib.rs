@@ -70,6 +70,17 @@ impl Emulator {
         self.gb.set_buttons(pressed);
     }
 
+    /// 音声の出力サンプルレート（Hz）を設定する。0 を渡すと音声の生成を止める。
+    /// 再生側のバッファの増減に合わせて、毎フレーム少しずつ変えてよい
+    pub fn set_sample_rate(&mut self, hz: f64) {
+        self.gb.set_audio_sample_rate(hz);
+    }
+
+    /// 溜まっている音声サンプル（左右交互、-1.0〜1.0）を取り出す
+    pub fn take_audio(&mut self) -> Vec<f32> {
+        self.gb.take_audio_samples()
+    }
+
     /// ROM のヘッダに書かれたタイトル
     pub fn title(&self) -> String {
         self.gb.cartridge().title()
@@ -251,6 +262,18 @@ mod tests {
         let mut pacer = FramePacer::new();
         assert_eq!(pacer.frames_for(5000.0), 1);
         assert_eq!(pacer.frames_for(-10.0), 1);
+    }
+
+    #[test]
+    fn audio_is_produced_only_after_a_sample_rate_is_set() {
+        let mut emulator = Emulator::create(&blank_rom()).unwrap();
+        emulator.run_frame();
+        assert!(emulator.take_audio().is_empty());
+        emulator.set_sample_rate(48_000.0);
+        emulator.run_frame();
+        // 1 フレーム（約 16.7ms）ぶん ≒ 804 フレーム × 2 チャンネル
+        let samples = emulator.take_audio();
+        assert!((1500..1700).contains(&samples.len()), "{}", samples.len());
     }
 
     #[test]

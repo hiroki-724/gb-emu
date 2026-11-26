@@ -52,7 +52,7 @@ const state = {
   windowStart: 0,
   lastSaveCheck: 0,
   /** pad: 画面上のボタンを出すか（auto = タッチできる端末でだけ出す） */
-  settings: { palette: "green", showFps: false, pad: "auto" },
+  settings: { palette: "green", showFps: false, pad: "auto", sound: true },
 };
 
 // ---- 設定 ----
@@ -69,6 +69,7 @@ function loadSettings() {
   if (!["auto", "show", "hide"].includes(state.settings.pad)) {
     state.settings.pad = "auto";
   }
+  state.settings.sound = state.settings.sound !== false;
 }
 
 function applyPadVisibility() {
@@ -175,6 +176,111 @@ function draw() {
   context.putImageData(imageData, 0, 0);
 }
 
+// ---- 音 ----
+
+/** 再生側に溜めておく量（秒）。大きいほど途切れにくく、小さいほど遅れが少ない */
+const AUDIO_TARGET_SECONDS = 0.06;
+
+const audio = {
+  context: null,
+  node: null,
+  gain: null,
+  /** 再生側に溜めておく量（フレーム数） */
+  targetFrames: 0,
+  /** 再生側から最後に報告された残量（フレーム数） */
+  queuedFrames: 0,
+  /** 準備中の二重実行を防ぐ */
+  starting: false,
+};
+
+/** いま音を鳴らせる状態か */
+function audioActive() {
+  return Boolean(audio.node) && audio.context.state === "running" && state.settings.sound;
+}
+
+/**
+ * エミュレータ側の生成レートを決める。
+ * 画面の更新に合わせて進めると実機より最大 0.5% ほど速くなるので、そのままだと再生側に音が
+ * 溜まり続ける。残量が目標より多ければ生成を少し減らし、少なければ増やして釣り合わせる（最大 ±2%）
+ */
+function syncAudioRate() {
+  const emulator = state.emulator;
+  if (!emulator) return;
+  if (!audioActive()) {
+    emulator.set_sample_rate(0);
+    return;
+  }
+  const error = (audio.queuedFrames - audio.targetFrames) / audio.targetFrames;
+  const adjust = 1 - 0.02 * Math.max(-1, Math.min(1, error));
+  emulator.set_sample_rate(audio.context.sampleRate * adjust);
+}
+
+/** 生成された音を再生側へ送る */
+function flushAudio() {
+  const emulator = state.emulator;
+  if (!emulator || !audioActive()) return;
+  const samples = emulator.take_audio();
+  if (samples.length > 0) {
+    audio.node.port.postMessage(samples, [samples.buffer]);
+  }
+}
+
+/**
+ * 音の出力を準備する。ブラウザの決まりで、ユーザーの操作（タップやキー入力）の中からしか
+ * 始められないので、操作のたびに呼ぶ（準備が済んでいれば何もしない）
+ */
+async function ensureAudio() {
+  if (!state.settings.sound) return;
+  if (audio.context) {
+    if (audio.context.state === "suspended" && !document.hidden) {
+      audio.context.resume().catch(() => {});
+    }
+    return;
+  }
+  const AudioContextClass = window.AudioContext ?? window.webkitAudioContext;
+  if (audio.starting || !AudioContextClass) return;
+  audio.starting = true;
+  try {
+    // iPhone では、これを指定しないと消音スイッチで音が出なくなる（対応ブラウザのみ）
+    if (navigator.audioSession) navigator.audioSession.type = "playback";
+    const context = new AudioContextClass({ latencyHint: "interactive" });
+    if (!context.audioWorklet) {
+      await context.close();
+      return;
+    }
+    await context.audioWorklet.addModule("audio-worklet.js");
+    audio.targetFrames = Math.round(context.sampleRate * AUDIO_TARGET_SECONDS);
+    const node = new AudioWorkletNode(context, "gb-audio", {
+      numberOfInputs: 0,
+      outputChannelCount: [2],
+      processorOptions: { targetFrames: audio.targetFrames },
+    });
+    node.port.onmessage = (event) => {
+      audio.queuedFrames = event.data;
+    };
+    const gain = context.createGain();
+    gain.gain.value = 0.8;
+    node.connect(gain).connect(context.destination);
+    audio.context = context;
+    audio.node = node;
+    audio.gain = gain;
+    if (context.state === "suspended") await context.resume();
+  } catch {
+    // 音が出せない環境でも、ゲーム自体は遊べるようにする
+  } finally {
+    audio.starting = false;
+  }
+}
+
+function applySoundSetting() {
+  if (state.settings.sound) {
+    ensureAudio();
+  } else if (audio.context?.state === "running") {
+    audio.context.suspend().catch(() => {});
+  }
+  syncAudioRate();
+}
+
 // ---- メインループ ----
 
 function frame(now) {
@@ -187,10 +293,14 @@ function frame(now) {
   if (delta <= 0) return;
 
   const frames = state.pacer.frames_for(delta);
-  for (let i = 0; i < frames; i++) {
-    emulator.run_frame();
+  if (frames > 0) {
+    syncAudioRate();
+    for (let i = 0; i < frames; i++) {
+      emulator.run_frame();
+    }
+    flushAudio();
+    draw();
   }
-  if (frames > 0) draw();
 
   state.framesInWindow += frames;
   if (now - state.windowStart >= 1000) {
@@ -221,6 +331,8 @@ function start() {
 function stop() {
   cancelAnimationFrame(state.rafId);
   state.rafId = 0;
+  // 止まっている間に作られた音が、再開時にまとめて鳴らないようにする
+  state.emulator?.take_audio();
 }
 
 // ---- 入力 ----
@@ -555,6 +667,19 @@ function setupInterface() {
     storeSettings();
   });
 
+  const soundToggle = $("sound-toggle");
+  soundToggle.checked = state.settings.sound;
+  soundToggle.addEventListener("change", () => {
+    state.settings.sound = soundToggle.checked;
+    storeSettings();
+    applySoundSetting();
+  });
+
+  // 音はユーザーの操作の中からしか始められないので、操作のたびに準備を試みる
+  for (const type of ["pointerup", "touchend", "click", "keydown"]) {
+    window.addEventListener(type, ensureAudio, { passive: true });
+  }
+
   const padSelect = $("pad-select");
   padSelect.value = state.settings.pad;
   padSelect.addEventListener("change", () => {
@@ -600,7 +725,9 @@ function setupInterface() {
     if (document.hidden) {
       persistSave(true);
       stop();
+      if (audio.context?.state === "running") audio.context.suspend().catch(() => {});
     } else {
+      if (state.settings.sound) audio.context?.resume().catch(() => {});
       start();
     }
   });
@@ -639,7 +766,7 @@ async function main() {
 
 // 動作確認用: URL に ?debug を付けると、開発者ツールから中を触れる
 if (new URLSearchParams(location.search).has("debug")) {
-  globalThis.gbDebug = { state, boot, draw, frame, persistSave, applyPadVisibility };
+  globalThis.gbDebug = { state, audio, boot, draw, frame, persistSave, applyPadVisibility, ensureAudio };
 }
 
 main();

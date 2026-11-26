@@ -43,8 +43,8 @@
 - [ ] GitHub Actions でビルド → GitHub Pages に自動デプロイ
 
 ### M7: サウンド（余力があれば）
-- [ ] APU 実装、Web Audio で再生
-- [ ] Blargg `dmg_sound` をできる範囲でパス
+- [x] APU 実装、Web Audio で再生
+- [x] Blargg `dmg_sound` をできる範囲でパス
 
 ## 構成
 ```
