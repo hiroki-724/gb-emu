@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#16171a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>GB エミュレータ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="bar">
+      <button class="bar-button" id="open-button" type="button">ROM を開く</button>
+      <span class="rom-title" id="rom-title"></span>
+      <span class="fps" id="fps" hidden></span>
+      <button class="bar-button" id="menu-button" type="button" aria-haspopup="dialog">設定</button>
+    </header>
+
+    <div class="stage" id="stage">
+      <div class="screen-frame">
+        <canvas id="screen" width="160" height="144" aria-label="ゲーム画面"></canvas>
+        <div class="welcome" id="welcome">
+          <p class="welcome-title">GB エミュレータ</p>
+          <button class="welcome-button" id="welcome-open" type="button">ROM を開く</button>
+          <button class="welcome-button secondary" id="resume-button" type="button" hidden></button>
+          <p class="welcome-note">ROM は端末の中だけで使われ、送信されません</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="pad" id="pad" aria-label="コントローラー">
+      <div class="dpad" id="dpad">
+        <span class="dpad-arm up" data-bit="4"></span>
+        <span class="dpad-arm left" data-bit="2"></span>
+        <span class="dpad-center"></span>
+        <span class="dpad-arm right" data-bit="1"></span>
+        <span class="dpad-arm down" data-bit="8"></span>
+      </div>
+      <div class="ab" id="ab">
+        <span class="round-button b" data-bit="32">B</span>
+        <span class="round-button a" data-bit="16">A</span>
+      </div>
+      <div class="pills" id="pills">
+        <span class="pill" data-bit="64">SELECT</span>
+        <span class="pill" data-bit="128">START</span>
+      </div>
+    </div>
+
+    <p class="keys-help">矢印キー：十字キー　Z：B　X：A　Enter：START　Shift：SELECT</p>
+  </div>
+
+  <dialog class="sheet" id="menu">
+    <form method="dialog" class="sheet-body">
+      <h2 class="sheet-title">設定</h2>
+
+      <fieldset class="field">
+        <legend>画面の色</legend>
+        <div class="palette-options" id="palette-options"></div>
+      </fieldset>
+
+      <label class="switch-row">
+        <span>画面上のボタン</span>
+        <select id="pad-select">
+          <option value="auto">自動</option>
+          <option value="show">表示する</option>
+          <option value="hide">隠す</option>
+        </select>
+      </label>
+
+      <label class="switch-row">
+        <span>FPS を表示</span>
+        <input type="checkbox" id="fps-toggle">
+      </label>
+
+      <div class="sheet-actions">
+        <button class="sheet-button" id="reset-button" type="button">リセット（電源を入れ直す）</button>
+        <button class="sheet-button" id="fullscreen-button" type="button" hidden>全画面表示</button>
+        <button class="sheet-button" id="export-save-button" type="button">セーブデータを書き出す</button>
+        <button class="sheet-button" id="import-save-button" type="button">セーブデータを読み込む</button>
+        <button class="sheet-button" id="forget-rom-button" type="button">この端末に覚えた ROM を消す</button>
+      </div>
+
+      <button class="sheet-close" value="close">閉じる</button>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <input id="rom-input" type="file" accept=".gb,.gbc,.bin,application/octet-stream" hidden>
+  <input id="save-input" type="file" accept=".sav,.srm,application/octet-stream" hidden>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

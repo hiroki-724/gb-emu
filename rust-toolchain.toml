@@ -1,0 +1,6 @@
+# 手元と GitHub Actions で同じ版の Rust を使う（clippy の指摘が版によって変わるため）
+[toolchain]
+channel = "1.100.0"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]

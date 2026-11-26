@@ -240,6 +240,12 @@ impl Cartridge {
             .collect()
     }
 
+    /// ヘッダに書かれた ROM 全体のチェックサム（0x014E〜0x014F）。
+    /// タイトルと合わせて、セーブデータをどの ROM のものか見分けるのに使う
+    pub fn global_checksum(&self) -> u16 {
+        u16::from_be_bytes([self.rom[0x14E], self.rom[0x14F]])
+    }
+
     /// セーブデータを作る。バッテリーのないカートリッジでは None。
     ///
     /// 中身は RAM そのまま。RTC 付きの場合は末尾に 48 バイトの時計情報を付ける

@@ -78,3 +78,48 @@ impl Joypad {
         before & !self.lines() != 0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selected_row_shows_pressed_buttons_as_zero() {
+        let mut pad = Joypad::new();
+        pad.set_button(Button::Left, true);
+        pad.set_button(Button::A, true);
+        pad.write(0x20); // 十字キーの列を選択
+        assert_eq!(pad.read(), 0xC0 | 0x20 | 0b1101);
+        pad.write(0x10); // ボタンの列を選択
+        assert_eq!(pad.read(), 0xC0 | 0x10 | 0b1110);
+        pad.write(0x30); // どちらも選択しない
+        assert_eq!(pad.read(), 0xFF);
+        pad.write(0x00); // 両方選択すると重なって見える
+        assert_eq!(pad.read(), 0xC0 | 0b1100);
+    }
+
+    #[test]
+    fn press_requests_interrupt_only_when_its_row_is_selected() {
+        let mut pad = Joypad::new();
+        pad.write(0x20);
+        assert!(!pad.set_button(Button::Start, true), "選択していない列");
+        assert!(pad.set_button(Button::Down, true));
+        assert!(
+            !pad.set_button(Button::Down, true),
+            "押しっぱなしでは出ない"
+        );
+        assert!(!pad.set_button(Button::Down, false), "離したときは出ない");
+        // 列を切り替えた結果、線が 0 になった場合も割り込みが出る
+        assert!(pad.write(0x10));
+    }
+
+    #[test]
+    fn set_state_replaces_all_buttons() {
+        let mut pad = Joypad::new();
+        pad.write(0x10);
+        assert!(pad.set_state(Button::A as u8 | Button::Start as u8));
+        assert_eq!(pad.read() & 0x0F, 0b0110);
+        pad.set_state(0);
+        assert_eq!(pad.read() & 0x0F, 0x0F);
+    }
+}

@@ -32,13 +32,13 @@
 ### M5: カートリッジ
 - [x] MBC1 / MBC3 / MBC5 対応
 - [x] mooneye `emulator-only/mbc1/` 全パス（mbc2・mbc5 のテストも可能な範囲で）
-- [ ] バッテリーバックアップRAMの保存（web版は localStorage）
+- [x] バッテリーバックアップRAMの保存（web版は localStorage）
 
 ### M6: Web フロントエンド
-- [ ] ブラウザで ROM ファイルを選んで起動できる（ROM は同梱しない）
-- [ ] 160×144 を整数倍スケールし、ピクセルをくっきり表示（`image-rendering: pixelated`）
-- [ ] キーボード操作（矢印 / Z=B / X=A / Enter=Start / Shift=Select）
-- [ ] スマホ用タッチ操作（十字キー・A/B・Start/Select）、縦画面でも横画面でも遊べるレイアウト
+- [x] ブラウザで ROM ファイルを選んで起動できる（ROM は同梱しない）
+- [x] 160×144 を整数倍スケールし、ピクセルをくっきり表示（`image-rendering: pixelated`）
+- [x] キーボード操作（矢印 / Z=B / X=A / Enter=Start / Shift=Select）
+- [x] スマホ用タッチ操作（十字キー・A/B・Start/Select）、縦画面でも横画面でも遊べるレイアウト
 - [ ] スマホのブラウザで約 60fps（59.7fps）で安定動作
 - [ ] GitHub Actions でビルド → GitHub Pages に自動デプロイ
 
@@ -83,12 +83,16 @@ PROGRESS.md 進捗レポート
 - `scripts/run-test-roms.sh [--list-failures] [--filter STR]` → 合否表を出力。
   結果を `test-results.txt` に記録し、前回パスしていたテストが落ちたら終了コード 1 を返す。
   dmg-acid2 が失敗したときの画面は `target/test-output/` に保存される
-- `wasm-pack build web --target web` → `web/` を静的サーバーで確認（M6 で用意する）
+- `scripts/serve-web.sh` — Web 版をビルド（`wasm-pack build web --target web --release`）して
+  http://localhost:8000 で配信。`--out DIR` を付けると公開用ファイル一式を DIR に置くだけ
+- Web 版は URL に `?debug` を付けると `gbDebug`（state・boot など）を開発者ツールから触れる
+- `.github/workflows/pages.yml` — main への push でテスト・ビルドし、GitHub Pages に公開
 
 補足:
 - パッケージ名は `core/` が `gb-core`、`cli/` が `cli`、`web/` が `gb-web`
   （`core` という名前のクレートは Rust 標準の `core` と衝突するため）
-- Rust は rustup で導入済み。`cargo` が見つからないシェルでは `source ~/.cargo/env` を実行する
+- Rust は rustup で導入済み。`cargo` が見つからないシェルでは `source ~/.cargo/env` を実行する。
+  版は `rust-toolchain.toml` で固定している（手元と GitHub Actions で clippy の指摘をそろえるため）
 
 ## 作業ルール
 - 作業の区切りごとに `cargo test --workspace` と `scripts/run-test-roms.sh` を実行し、

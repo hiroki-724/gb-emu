@@ -1,0 +1,91 @@
+# main に push されるたびにテストと Web 版のビルドを行い、GitHub Pages に公開する。
+#
+# 公開には、リポジトリの Settings → Pages で Source を「GitHub Actions」にしておく必要がある。
+# まだ設定されていない間は、ビルドとテストだけ行って公開は見送る（失敗扱いにはしない）。
+name: Web 版のビルドと公開
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 公開が重ならないよう、新しい push が来たら古い実行は取りやめる
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  WASM_PACK_VERSION: "0.15.1"
+
+jobs:
+  build:
+    name: テストとビルド
+    runs-on: ubuntu-latest
+    outputs:
+      pages_enabled: ${{ steps.pages.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # 版・コンポーネント・wasm ターゲットは rust-toolchain.toml に書いてある
+      - name: Rust を用意
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: ビルド結果のキャッシュ
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/wasm-pack
+            target
+          key: cargo-${{ runner.os }}-${{ env.WASM_PACK_VERSION }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ env.WASM_PACK_VERSION }}-
+
+      - name: 整形・静的解析・単体テスト
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+
+      - name: wasm-pack を用意
+        run: command -v wasm-pack || cargo install wasm-pack --locked --version "$WASM_PACK_VERSION"
+
+      - name: Web 版をビルド
+        run: scripts/serve-web.sh --out _site
+
+      - name: GitHub Pages が有効か確認
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" > /dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub Pages がまだ有効になっていないため、公開は見送りました。Settings → Pages で Source を「GitHub Actions」にしてください。"
+          fi
+
+      - name: 公開用ファイルをアップロード
+        if: steps.pages.outputs.enabled == 'true'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    name: GitHub Pages に公開
+    needs: build
+    if: needs.build.outputs.pages_enabled == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
