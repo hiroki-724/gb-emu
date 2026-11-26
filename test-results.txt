@@ -42,8 +42,8 @@ PASS	mooneye/acceptance/add_sp_e_timing.gb
 PASS	mooneye/acceptance/bits/mem_oam.gb
 PASS	mooneye/acceptance/bits/reg_f.gb
 PASS	mooneye/acceptance/bits/unused_hwio-GS.gb
-FAIL	mooneye/acceptance/boot_div-dmgABCmgb.gb
-FAIL	mooneye/acceptance/boot_hwio-dmgABCmgb.gb
+PASS	mooneye/acceptance/boot_div-dmgABCmgb.gb
+PASS	mooneye/acceptance/boot_hwio-dmgABCmgb.gb
 PASS	mooneye/acceptance/boot_regs-dmgABC.gb
 PASS	mooneye/acceptance/call_cc_timing.gb
 PASS	mooneye/acceptance/call_cc_timing2.gb
@@ -71,13 +71,13 @@ PASS	mooneye/acceptance/oam_dma_restart.gb
 PASS	mooneye/acceptance/oam_dma_start.gb
 PASS	mooneye/acceptance/oam_dma_timing.gb
 PASS	mooneye/acceptance/pop_timing.gb
-PASS	mooneye/acceptance/ppu/hblank_ly_scx_timing-GS.gb
+FAIL	mooneye/acceptance/ppu/hblank_ly_scx_timing-GS.gb
 PASS	mooneye/acceptance/ppu/intr_1_2_timing-GS.gb
 PASS	mooneye/acceptance/ppu/intr_2_0_timing.gb
-FAIL	mooneye/acceptance/ppu/intr_2_mode0_timing.gb
+PASS	mooneye/acceptance/ppu/intr_2_mode0_timing.gb
 FAIL	mooneye/acceptance/ppu/intr_2_mode0_timing_sprites.gb
-FAIL	mooneye/acceptance/ppu/intr_2_mode3_timing.gb
-FAIL	mooneye/acceptance/ppu/intr_2_oam_ok_timing.gb
+PASS	mooneye/acceptance/ppu/intr_2_mode3_timing.gb
+PASS	mooneye/acceptance/ppu/intr_2_oam_ok_timing.gb
 FAIL	mooneye/acceptance/ppu/lcdon_timing-GS.gb
 FAIL	mooneye/acceptance/ppu/lcdon_write_timing-GS.gb
 PASS	mooneye/acceptance/ppu/stat_irq_blocking.gb
@@ -92,7 +92,7 @@ PASS	mooneye/acceptance/reti_timing.gb
 PASS	mooneye/acceptance/rst_timing.gb
 PASS	mooneye/acceptance/serial/boot_sclk_align-dmgABCmgb.gb
 PASS	mooneye/acceptance/timer/div_write.gb
-FAIL	mooneye/acceptance/timer/rapid_toggle.gb
+PASS	mooneye/acceptance/timer/rapid_toggle.gb
 PASS	mooneye/acceptance/timer/tim00.gb
 PASS	mooneye/acceptance/timer/tim00_div_trigger.gb
 PASS	mooneye/acceptance/timer/tim01.gb

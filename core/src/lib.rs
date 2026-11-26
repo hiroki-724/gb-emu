@@ -97,6 +97,11 @@ impl GameBoy {
         self.bus.peek(addr)
     }
 
+    /// 描画中かどうかに関係なく VRAM（0x8000〜0x9FFF）を読む（デバッグ・テスト判定用）
+    pub fn peek_vram(&self, addr: u16) -> u8 {
+        self.bus.ppu.peek_vram(addr)
+    }
+
     /// `LD B,B` が実行されていたら true を返し、フラグを下ろす
     pub fn take_breakpoint(&mut self) -> bool {
         std::mem::take(&mut self.cpu.breakpoint_hit)

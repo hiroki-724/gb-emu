@@ -109,7 +109,7 @@ pub fn run_mooneye(rom: &[u8], timeout_seconds: u64) -> Outcome {
             return if regs == [3, 5, 8, 13, 21, 34] {
                 Outcome::Pass
             } else if regs == [0x42; 6] {
-                Outcome::Fail("テストROMが失敗を報告".to_string())
+                Outcome::Fail(format!("テストROMが失敗を報告: {}", screen_text(&gb)))
             } else {
                 Outcome::Fail(format!("想定外のレジスタ値 {regs:02X?}"))
             };
@@ -122,6 +122,26 @@ pub fn run_mooneye(rom: &[u8], timeout_seconds: u64) -> Outcome {
         }
     }
     Outcome::Fail("タイムアウト".to_string())
+}
+
+/// 背景マップ（0x9800〜）を文字として読む。
+/// mooneye のテストROMは ASCII コードをそのままタイル番号にして結果を画面に書くので、
+/// 失敗の内訳（どのレジスタが期待と違ったか）をここから拾える
+fn screen_text(gb: &GameBoy) -> String {
+    let mut lines = Vec::new();
+    for row in 0..18u16 {
+        let line: String = (0..20u16)
+            .map(|col| match gb.peek_vram(0x9800 + row * 32 + col) {
+                byte @ 0x20..=0x7E => byte as char,
+                _ => ' ',
+            })
+            .collect();
+        let line = line.split_whitespace().collect::<Vec<_>>().join(" ");
+        if !line.is_empty() {
+            lines.push(line);
+        }
+    }
+    lines.join(" | ")
 }
 
 /// dmg-acid2。描画が終わると `LD B,B` が実行されるので、その後の画面をリファレンス画像と比べる

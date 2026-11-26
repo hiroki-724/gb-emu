@@ -32,7 +32,8 @@ impl Joypad {
     pub fn new() -> Self {
         Joypad {
             pressed: 0,
-            select: 0x30,
+            // ブートROM終了時点では両方の列が選択された状態（P1 = 0xCF）
+            select: 0x00,
         }
     }
 

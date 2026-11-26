@@ -30,8 +30,9 @@ impl Default for Timer {
 impl Timer {
     pub fn new() -> Self {
         Timer {
-            // DMG のブートROM終了時点で内部カウンタは 0xABCC（T サイクル単位）
-            counter: 0xABCC >> 2,
+            // DMG では 0x0100 の最初の命令をフェッチするサイクルで内部カウンタが 0xABCC
+            // （T サイクル単位）になる。ここはそのサイクルに入る前の値なので 1 つ手前
+            counter: (0xABCC >> 2) - 1,
             tima: 0,
             tma: 0,
             tac: 0,

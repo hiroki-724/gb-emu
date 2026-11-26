@@ -4,18 +4,35 @@
 //! PPU・タイマーなどの周辺回路を進める（[`CpuBus`] の実装が担当する）。
 //! そのため命令ごとの「サイクル数表」は持たず、アクセスの並びがそのままタイミングになる。
 
-/// CPU から見たバス。`read` / `write` / `idle` はいずれも 1 M サイクル進める。
+/// CPU から見たバス。
+///
+/// 1 M サイクルは「周辺回路が進む（`tick`）→ その後でメモリにアクセスする（`load` / `store`）」
+/// の順で扱う。`read` / `write` はこの 2 つをまとめたもの。
 pub trait CpuBus {
-    /// 1 M サイクル進めてから読む
-    fn read(&mut self, addr: u16) -> u8;
-    /// 1 M サイクル進めてから書く
-    fn write(&mut self, addr: u16, value: u8);
-    /// メモリアクセスを伴わない内部サイクル
-    fn idle(&mut self);
+    /// 周辺回路を 1 M サイクル進める（メモリアクセスを伴わない内部サイクルにも使う）
+    fn tick(&mut self);
+    /// 時間を進めずに読む（そのサイクルの `tick` は済んでいる前提）
+    fn load(&mut self, addr: u16) -> u8;
+    /// 時間を進めずに書く（そのサイクルの `tick` は済んでいる前提）
+    fn store(&mut self, addr: u16, value: u8);
     /// 要求が出ていて、かつ許可されている割り込み（IE & IF の下位 5bit）
     fn pending_interrupts(&self) -> u8;
     /// IF の該当ビットを下ろす
     fn clear_interrupt(&mut self, mask: u8);
+
+    /// 1 M サイクル進めてから読む
+    #[inline]
+    fn read(&mut self, addr: u16) -> u8 {
+        self.tick();
+        self.load(addr)
+    }
+
+    /// 1 M サイクル進めてから書く
+    #[inline]
+    fn write(&mut self, addr: u16, value: u8) {
+        self.tick();
+        self.store(addr, value);
+    }
 }
 
 const FLAG_Z: u8 = 0x80;
@@ -119,23 +136,28 @@ impl Cpu {
             | (if c { FLAG_C } else { 0 });
     }
 
-    /// 1 命令（または割り込み受け付け・HALT 中の 1 サイクル）を実行する
+    /// 1 命令（または割り込み受け付け・HALT 中の 1 サイクル）を実行する。
+    ///
+    /// 割り込みを受け付けるかどうかは、次の命令のフェッチサイクルの中（周辺回路がそのサイクルぶん
+    /// 進んだ後）で決まる。HALT 中も毎サイクル同じ判定をしていて、NOP を並べて待つのと
+    /// 同じタイミングで復帰する。
     pub fn step<B: CpuBus>(&mut self, bus: &mut B) {
+        // フェッチサイクルの時間を進める
+        bus.tick();
         if self.locked {
-            bus.idle();
             return;
         }
 
+        let pending = bus.pending_interrupts();
         if self.halted {
-            // HALT 中は 1 サイクルずつ進め、IE & IF が立ったら起きる（IME は関係ない）
-            bus.idle();
-            if bus.pending_interrupts() != 0 {
-                self.halted = false;
+            // HALT は IE & IF が立つと IME に関係なく解除される
+            if pending == 0 {
+                return;
             }
-            return;
+            self.halted = false;
         }
 
-        if self.ime && bus.pending_interrupts() != 0 {
+        if self.ime && pending != 0 {
             self.dispatch_interrupt(bus);
             return;
         }
@@ -147,15 +169,15 @@ impl Cpu {
             self.ime = true;
         }
 
-        let opcode = self.fetch8(bus);
+        let opcode = self.fetch_opcode(bus);
         self.execute(bus, opcode);
     }
 
-    /// 割り込み受け付け（5 M サイクル）
+    /// 割り込み受け付け（5 M サイクル）。
+    /// 1 サイクル目は「読んだオペコードを捨てる」フェッチサイクルで、`step` 側ですでに進めてある
     fn dispatch_interrupt<B: CpuBus>(&mut self, bus: &mut B) {
         self.ime = false;
-        bus.idle();
-        bus.idle();
+        bus.tick();
         self.sp = self.sp.wrapping_sub(1);
         bus.write(self.sp, (self.pc >> 8) as u8);
         // PC 上位バイトの push が IE（0xFFFF）を書き換えることがあるため、
@@ -170,18 +192,27 @@ impl Cpu {
         } else {
             self.pc = 0x0000;
         }
-        bus.idle();
+        bus.tick();
     }
 
+    /// オペコードを読む。このサイクルの時間は `step` の先頭ですでに進めてある
     #[inline]
-    fn fetch8<B: CpuBus>(&mut self, bus: &mut B) -> u8 {
-        let v = bus.read(self.pc);
+    fn fetch_opcode<B: CpuBus>(&mut self, bus: &mut B) -> u8 {
+        let v = bus.load(self.pc);
         if self.halt_bug {
             // HALT バグ: HALT 直後の 1 バイトは PC が進まず、2 回読まれる
             self.halt_bug = false;
         } else {
             self.pc = self.pc.wrapping_add(1);
         }
+        v
+    }
+
+    /// 命令のオペランド（即値）を 1 バイト読む
+    #[inline]
+    fn fetch8<B: CpuBus>(&mut self, bus: &mut B) -> u8 {
+        let v = bus.read(self.pc);
+        self.pc = self.pc.wrapping_add(1);
         v
     }
 
@@ -407,14 +438,14 @@ impl Cpu {
                     3 => {
                         // JR e
                         let offset = self.fetch8(bus) as i8;
-                        bus.idle();
+                        bus.tick();
                         self.pc = self.pc.wrapping_add(offset as i16 as u16);
                     }
                     _ => {
                         // JR cc,e
                         let offset = self.fetch8(bus) as i8;
                         if self.cond(y - 4) {
-                            bus.idle();
+                            bus.tick();
                             self.pc = self.pc.wrapping_add(offset as i16 as u16);
                         }
                     }
@@ -426,7 +457,7 @@ impl Cpu {
                         self.set_rp(p, v);
                     } else {
                         // ADD HL,rr
-                        bus.idle();
+                        bus.tick();
                         self.add_hl(self.rp(p));
                     }
                 }
@@ -449,7 +480,7 @@ impl Cpu {
                 }
                 3 => {
                     // INC rr / DEC rr
-                    bus.idle();
+                    bus.tick();
                     let v = self.rp(p);
                     self.set_rp(
                         p,
@@ -534,10 +565,10 @@ impl Cpu {
                 0 => match y {
                     0..=3 => {
                         // RET cc
-                        bus.idle();
+                        bus.tick();
                         if self.cond(y) {
                             self.pc = self.pop16(bus);
-                            bus.idle();
+                            bus.tick();
                         }
                     }
                     4 => {
@@ -548,8 +579,8 @@ impl Cpu {
                     5 => {
                         // ADD SP,e
                         let offset = self.fetch8(bus);
-                        bus.idle();
-                        bus.idle();
+                        bus.tick();
+                        bus.tick();
                         self.sp = self.add_sp_offset(offset);
                     }
                     6 => {
@@ -560,7 +591,7 @@ impl Cpu {
                     _ => {
                         // LD HL,SP+e
                         let offset = self.fetch8(bus);
-                        bus.idle();
+                        bus.tick();
                         let v = self.add_sp_offset(offset);
                         self.set_hl(v);
                     }
@@ -583,18 +614,18 @@ impl Cpu {
                             0 => {
                                 // RET
                                 self.pc = self.pop16(bus);
-                                bus.idle();
+                                bus.tick();
                             }
                             1 => {
                                 // RETI（EI と違い、IME は遅延なしで立つ）
                                 self.pc = self.pop16(bus);
-                                bus.idle();
+                                bus.tick();
                                 self.ime = true;
                             }
                             2 => self.pc = self.hl(), // JP HL
                             _ => {
                                 // LD SP,HL
-                                bus.idle();
+                                bus.tick();
                                 self.sp = self.hl();
                             }
                         }
@@ -605,7 +636,7 @@ impl Cpu {
                         // JP cc,nn
                         let addr = self.fetch16(bus);
                         if self.cond(y) {
-                            bus.idle();
+                            bus.tick();
                             self.pc = addr;
                         }
                     }
@@ -626,7 +657,7 @@ impl Cpu {
                     0 => {
                         // JP nn
                         let addr = self.fetch16(bus);
-                        bus.idle();
+                        bus.tick();
                         self.pc = addr;
                     }
                     1 => self.execute_cb(bus),
@@ -648,7 +679,7 @@ impl Cpu {
                         // CALL cc,nn
                         let addr = self.fetch16(bus);
                         if self.cond(y) {
-                            bus.idle();
+                            bus.tick();
                             self.push16(bus, self.pc);
                             self.pc = addr;
                         }
@@ -664,12 +695,12 @@ impl Cpu {
                             2 => self.hl(),
                             _ => self.af(),
                         };
-                        bus.idle();
+                        bus.tick();
                         self.push16(bus, v);
                     } else if p == 0 {
                         // CALL nn
                         let addr = self.fetch16(bus);
-                        bus.idle();
+                        bus.tick();
                         self.push16(bus, self.pc);
                         self.pc = addr;
                     } else {
@@ -683,7 +714,7 @@ impl Cpu {
                 }
                 _ => {
                     // RST
-                    bus.idle();
+                    bus.tick();
                     self.push16(bus, self.pc);
                     self.pc = (y as u16) * 8;
                 }
@@ -716,7 +747,7 @@ impl Cpu {
             // 次のオペコードの読み出しで PC が進まない
             self.halt_bug = true;
         } else {
-            // IME=1 で保留中の場合も一度 HALT に入るが、次の step ですぐ起きる
+            // IME=1 で保留中の場合も一度 HALT に入るが、次のサイクルですぐ起きて割り込みに入る
             self.halted = true;
         }
     }
@@ -741,16 +772,14 @@ mod tests {
     }
 
     impl CpuBus for FlatBus {
-        fn read(&mut self, addr: u16) -> u8 {
+        fn tick(&mut self) {
             self.cycles += 1;
+        }
+        fn load(&mut self, addr: u16) -> u8 {
             self.mem[addr as usize]
         }
-        fn write(&mut self, addr: u16, value: u8) {
-            self.cycles += 1;
+        fn store(&mut self, addr: u16, value: u8) {
             self.mem[addr as usize] = value;
-        }
-        fn idle(&mut self) {
-            self.cycles += 1;
         }
         fn pending_interrupts(&self) -> u8 {
             self.mem[0xFFFF] & self.mem[0xFF0F] & 0x1F

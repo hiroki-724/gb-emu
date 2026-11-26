@@ -265,8 +265,8 @@ impl Ppu {
         self.oam[addr as usize & 0xFF] = value;
     }
 
-    /// OAM DMA の転送元として VRAM を読む（モードによるブロックを受けない）
-    pub fn dma_read_vram(&self, addr: u16) -> u8 {
+    /// モードによるブロックを受けずに VRAM を読む（OAM DMA の転送元・デバッグ用）
+    pub fn peek_vram(&self, addr: u16) -> u8 {
         self.vram[addr as usize & 0x1FFF]
     }
 

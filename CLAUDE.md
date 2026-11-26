@@ -17,13 +17,13 @@
 - [x] `scripts/run-test-roms.sh` で全テストROMを実行し、合否表を出せる
 
 ### M2: CPU
-- [ ] Blargg `cpu_instrs` 全11個パス
-- [ ] Blargg `instr_timing` パス
-- [ ] Blargg `mem_timing` パス
+- [x] Blargg `cpu_instrs` 全11個パス
+- [x] Blargg `instr_timing` パス
+- [x] Blargg `mem_timing` パス
 
 ### M3: タイマー・割り込み
-- [ ] mooneye `acceptance/timer/` 全パス
-- [ ] mooneye `acceptance/` の割り込み・HALT 関連（`ei_*`, `di_timing`, `halt_*`, `intr_*` など）パス
+- [x] mooneye `acceptance/timer/` 全パス
+- [x] mooneye `acceptance/` の割り込み・HALT 関連（`ei_*`, `di_timing`, `halt_*`, `intr_*` など）パス
 
 ### M4: PPU（画面）
 - [ ] `dmg-acid2` がリファレンス画像と一致

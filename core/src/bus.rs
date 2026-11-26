@@ -78,7 +78,7 @@ impl Bus {
     }
 
     /// 周辺回路を 1 M サイクル進める
-    fn tick(&mut self) {
+    fn advance(&mut self) {
         self.cycles += 1;
 
         let counter_before = self.timer.counter();
@@ -123,7 +123,7 @@ impl Bus {
     fn dma_source_read(&self, addr: u16) -> u8 {
         match addr {
             0x0000..=0x7FFF => self.cart.read_rom(addr),
-            0x8000..=0x9FFF => self.ppu.dma_read_vram(addr),
+            0x8000..=0x9FFF => self.ppu.peek_vram(addr),
             0xA000..=0xBFFF => self.cart.read_ram(addr),
             _ => self.wram[addr as usize & 0x1FFF],
         }
@@ -209,20 +209,18 @@ impl Bus {
 
 impl CpuBus for Bus {
     #[inline]
-    fn read(&mut self, addr: u16) -> u8 {
-        self.tick();
+    fn tick(&mut self) {
+        self.advance();
+    }
+
+    #[inline]
+    fn load(&mut self, addr: u16) -> u8 {
         self.peek(addr)
     }
 
     #[inline]
-    fn write(&mut self, addr: u16, value: u8) {
-        self.tick();
+    fn store(&mut self, addr: u16, value: u8) {
         self.poke(addr, value);
-    }
-
-    #[inline]
-    fn idle(&mut self) {
-        self.tick();
     }
 
     #[inline]
