@@ -39,7 +39,7 @@ pub fn run_blargg(rom: &[u8], timeout_seconds: u64) -> Outcome {
         Err(outcome) => return outcome,
     };
     let mut serial = String::new();
-    for _ in 0..frames_for_seconds(timeout_seconds) {
+    for frame in 0..frames_for_seconds(timeout_seconds) {
         gb.run_frame();
 
         let output = gb.take_serial_output();
@@ -50,6 +50,19 @@ pub fn run_blargg(rom: &[u8], timeout_seconds: u64) -> Outcome {
             }
             if serial.contains("Failed") {
                 return Outcome::Fail(last_lines(&serial));
+            }
+        }
+
+        // 古い ROM（halt_bug など）はシリアルにもメモリにも出さず、画面にだけ結果を書く。
+        // 文字は ASCII コードをタイル番号にして背景マップに置かれるので、そこから読む。
+        // 毎フレーム調べる必要はないので 16 フレームおきにする
+        if frame % 16 == 15 {
+            let text = screen_text(&gb);
+            if text.contains("Passed") {
+                return Outcome::Pass;
+            }
+            if text.contains("Failed") {
+                return Outcome::Fail(format!("画面 = {text}"));
             }
         }
 
@@ -77,7 +90,10 @@ pub fn run_blargg(rom: &[u8], timeout_seconds: u64) -> Outcome {
         }
     }
     if serial.trim().is_empty() {
-        Outcome::Fail("タイムアウト（出力なし）".to_string())
+        Outcome::Fail(format!(
+            "タイムアウト（出力なし）: 画面 = {}",
+            screen_text(&gb)
+        ))
     } else {
         Outcome::Fail(format!("タイムアウト: {}", last_lines(&serial)))
     }
@@ -125,8 +141,8 @@ pub fn run_mooneye(rom: &[u8], timeout_seconds: u64) -> Outcome {
 }
 
 /// 背景マップ（0x9800〜）を文字として読む。
-/// mooneye のテストROMは ASCII コードをそのままタイル番号にして結果を画面に書くので、
-/// 失敗の内訳（どのレジスタが期待と違ったか）をここから拾える
+/// Blargg と mooneye のテストROMは ASCII コードをそのままタイル番号にして結果を画面に書くので、
+/// 合否や失敗の内訳（どのレジスタが期待と違ったか）をここから拾える
 fn screen_text(gb: &GameBoy) -> String {
     let mut lines = Vec::new();
     for row in 0..18u16 {

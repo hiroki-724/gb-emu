@@ -40,6 +40,8 @@ pub struct Bus {
     hram: [u8; 0x7F],
     /// IF（割り込み要求、下位 5bit）
     intf: u8,
+    /// CPU が割り込み判定に使う IF。M サイクルの最初のドットの直後の状態
+    intf_sampled: u8,
     /// IE（割り込み許可）
     inte: u8,
     dma: Dma,
@@ -59,6 +61,7 @@ impl Bus {
             wram: Box::new([0; 0x2000]),
             hram: [0; 0x7F],
             intf: interrupts::VBLANK,
+            intf_sampled: interrupts::VBLANK,
             inte: 0,
             dma: Dma {
                 register: 0xFF,
@@ -88,8 +91,14 @@ impl Bus {
         self.clock_serial(counter_before);
 
         self.tick_dma();
-        self.intf |= self.ppu.tick();
         self.cart.tick();
+
+        // CPU が割り込みを受け付けるかどうかは、サイクルの最初のドットの直後の状態で決まる。
+        // 残りの 3 ドットで PPU が出した要求は IF には立つが、判定に使われるのは次のサイクルから
+        let (early, late) = self.ppu.tick();
+        self.intf |= early;
+        self.intf_sampled = self.intf;
+        self.intf |= late;
     }
 
     /// 内部カウンタの立ち下がりでシリアルを 1 ビット進める
@@ -226,6 +235,11 @@ impl CpuBus for Bus {
     #[inline]
     fn pending_interrupts(&self) -> u8 {
         self.intf & self.inte & 0x1F
+    }
+
+    #[inline]
+    fn sampled_interrupts(&self) -> u8 {
+        self.intf_sampled & self.inte & 0x1F
     }
 
     #[inline]

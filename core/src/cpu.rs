@@ -17,6 +17,12 @@ pub trait CpuBus {
     fn store(&mut self, addr: u16, value: u8);
     /// 要求が出ていて、かつ許可されている割り込み（IE & IF の下位 5bit）
     fn pending_interrupts(&self) -> u8;
+    /// フェッチサイクルで CPU が割り込み判定に使う値。`tick` の直後に呼ばれる。
+    /// 実機の CPU は M サイクルの早い段階で割り込み線を見るので、同じサイクルの後半に
+    /// 立った要求はここには含めない
+    fn sampled_interrupts(&self) -> u8 {
+        self.pending_interrupts()
+    }
     /// IF の該当ビットを下ろす
     fn clear_interrupt(&mut self, mask: u8);
 
@@ -148,7 +154,7 @@ impl Cpu {
             return;
         }
 
-        let pending = bus.pending_interrupts();
+        let pending = bus.sampled_interrupts();
         if self.halted {
             // HALT は IE & IF が立つと IME に関係なく解除される
             if pending == 0 {

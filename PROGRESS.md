@@ -3,11 +3,13 @@
 最終更新: 2026-11-26
 
 ## いまどこ
-**M2（CPU）・M3（タイマー・割り込み）完了。** 対象テストは全部パス。次は M4（画面）。
+**M4（画面）まで完了。** dmg-acid2 はリファレンス画像と一致、mooneye の PPU テストは 12 本すべてパス。
+mooneye の acceptance（DMG 向け 67 本）は全部通っている。次は M5（セーブ）→ M6（Web）。
 
-M3 でやったこと: 割り込みを受け付けるタイミングが実機より 1 命令遅れる場合があったのを修正
-（実機は「次の命令を読み込むサイクルの中」で判定する。HALT からの復帰も同じ扱いにした）。
-あわせて起動直後の DIV の位相とジョイパッドの初期値を実機に合わせた。
+M4 でやったこと: PPU のタイミングを実機の測定値（mooneye のテスト）に合わせて作り直した。
+- モードの切り替え位置、LY が増える位置、LCD を ON にした直後の 1 行目の特別扱い
+- スクロールの端数とスプライトによる描画期間（モード 3）の延長
+- LCD を消している間は LYC 一致フラグが凍結される、VBlank 開始時にも OAM 割り込みが出る、など
 
 ## テストROM合否表
 | 目標 | テスト群 | パス | 前回比 |
@@ -15,37 +17,41 @@ M3 でやったこと: 割り込みを受け付けるタイミングが実機よ
 | M2 | blargg/cpu_instrs | 11/11 | ±0 |
 | M2 | blargg/instr_timing | 1/1 | ±0 |
 | M2 | blargg/mem_timing | 3/3 | ±0 |
-| M3 | mooneye/acceptance/timer | 13/13 | +1 |
+| M3 | mooneye/acceptance/timer | 13/13 | ±0 |
 | M3 | mooneye/acceptance 割り込み・HALT | 12/12 | ±0 |
 | M4 | dmg-acid2 | 1/1 | ±0 |
-| M4 | mooneye/acceptance/ppu | 6/12 | +2 |
+| M4 | mooneye/acceptance/ppu | 12/12 | +6 |
 | M5 | mooneye/emulator-only/mbc1 | 13/13 | ±0 |
 | M5 | mooneye/emulator-only/mbc2 | 7/7 | ±0 |
 | M5 | mooneye/emulator-only/mbc5 | 8/8 | ±0 |
 | M7 | blargg/dmg_sound | 0/12 | ±0 |
 | — | blargg/mem_timing-2 | 3/3 | ±0 |
-| — | blargg/halt_bug | 0/1 | ±0 |
+| — | blargg/halt_bug | 1/1 | +1 |
 | — | blargg/oam_bug | 3/8 | ±0 |
-| — | mooneye/acceptance その他 | 21/21 | +2 |
+| — | mooneye/acceptance その他 | 21/21 | ±0 |
 | — | mooneye/acceptance/bits | 3/3 | ±0 |
 | — | mooneye/acceptance/instr | 1/1 | ±0 |
 | — | mooneye/acceptance/oam_dma | 3/3 | ±0 |
 | — | mooneye/acceptance/serial | 1/1 | ±0 |
-| | **合計** | **110/134** | **+5** |
+| | **合計** | **117/134** | **+7** |
 
-「前回比」は M1 完了時点（105/134）との差。「目標」が — の行は完成条件外の参考テスト。
+「前回比」は M2・M3 完了時点（110/134）との差。「目標」が — の行は完成条件外の参考テスト。
+速度: 60 秒ぶんのエミュレーションが Mac 上で約 0.5 秒（実機の約 120 倍速）。
 
 ## 詰まっていること・既知のバグ
-- `ppu/hblank_ly_scx_timing-GS` が通らなくなった（M1 時点では偶然合っていただけ。
-  割り込みタイミングを直したので PPU 側のずれが表に出た）。M4 で PPU のタイミングをまとめて合わせる
+- 詰まっているものはない
 - 音は出ない（APU は仮実装。M7）
-- `blargg/halt_bug` が未通過（タイムアウト。完成条件外だが M4 の後で調べる）
+- `blargg/oam_bug` 5 本が未通過（DMG 実機の「OAM 破壊バグ」の再現。完成条件外で、
+  これに依存する市販ソフトはほぼ無いので後回し）
+- 描画は 1 行単位。行の途中でスクロールやパレットを書き換える演出は、行頭の値で描かれる
 
 ## 次にやること
-1. M4: PPU のモード切り替え・STAT 割り込み・LCD ON 直後のタイミングを mooneye のテストに合わせる
-2. M4: スプライトによるモード 3 の延長を入れる
-3. M5: セーブデータの保存まわり（MBC のテスト自体はすでに全部パス）
+1. M5: バッテリーバックアップ RAM の保存（CLI の `--save`、Web 版は M6 で localStorage）
+2. M6: Web フロントエンド（wasm-bindgen、タッチ操作、GitHub Pages へのデプロイ）
+3. M7: サウンド
 
 ## オーナーに判断してほしいこと
 - **ライセンス**: リポジトリが公開なので、決めたいものがあれば教えてほしい
   （未指定のままでも開発は進められる。いまは何も宣言していない）
+- **GitHub Pages**: M6 のデプロイ前に、リポジトリの Settings → Pages で Source を
+  「GitHub Actions」にしておいてほしい

@@ -21,7 +21,7 @@ FAIL	blargg/dmg_sound/rom_singles/09-wave read while on.gb
 FAIL	blargg/dmg_sound/rom_singles/10-wave trigger while on.gb
 FAIL	blargg/dmg_sound/rom_singles/11-regs after power.gb
 FAIL	blargg/dmg_sound/rom_singles/12-wave write while on.gb
-FAIL	blargg/halt_bug.gb
+PASS	blargg/halt_bug.gb
 PASS	blargg/instr_timing/instr_timing.gb
 PASS	blargg/mem_timing-2/rom_singles/01-read_timing.gb
 PASS	blargg/mem_timing-2/rom_singles/02-write_timing.gb
@@ -71,18 +71,18 @@ PASS	mooneye/acceptance/oam_dma_restart.gb
 PASS	mooneye/acceptance/oam_dma_start.gb
 PASS	mooneye/acceptance/oam_dma_timing.gb
 PASS	mooneye/acceptance/pop_timing.gb
-FAIL	mooneye/acceptance/ppu/hblank_ly_scx_timing-GS.gb
+PASS	mooneye/acceptance/ppu/hblank_ly_scx_timing-GS.gb
 PASS	mooneye/acceptance/ppu/intr_1_2_timing-GS.gb
 PASS	mooneye/acceptance/ppu/intr_2_0_timing.gb
 PASS	mooneye/acceptance/ppu/intr_2_mode0_timing.gb
-FAIL	mooneye/acceptance/ppu/intr_2_mode0_timing_sprites.gb
+PASS	mooneye/acceptance/ppu/intr_2_mode0_timing_sprites.gb
 PASS	mooneye/acceptance/ppu/intr_2_mode3_timing.gb
 PASS	mooneye/acceptance/ppu/intr_2_oam_ok_timing.gb
-FAIL	mooneye/acceptance/ppu/lcdon_timing-GS.gb
-FAIL	mooneye/acceptance/ppu/lcdon_write_timing-GS.gb
+PASS	mooneye/acceptance/ppu/lcdon_timing-GS.gb
+PASS	mooneye/acceptance/ppu/lcdon_write_timing-GS.gb
 PASS	mooneye/acceptance/ppu/stat_irq_blocking.gb
-FAIL	mooneye/acceptance/ppu/stat_lyc_onoff.gb
-FAIL	mooneye/acceptance/ppu/vblank_stat_intr-GS.gb
+PASS	mooneye/acceptance/ppu/stat_lyc_onoff.gb
+PASS	mooneye/acceptance/ppu/vblank_stat_intr-GS.gb
 PASS	mooneye/acceptance/push_timing.gb
 PASS	mooneye/acceptance/rapid_di_ei.gb
 PASS	mooneye/acceptance/ret_cc_timing.gb

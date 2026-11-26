@@ -26,8 +26,8 @@
 - [x] mooneye `acceptance/` の割り込み・HALT 関連（`ei_*`, `di_timing`, `halt_*`, `intr_*` など）パス
 
 ### M4: PPU（画面）
-- [ ] `dmg-acid2` がリファレンス画像と一致
-- [ ] mooneye `acceptance/ppu/` をできる範囲でパス（難しいものは PROGRESS.md に記録して後回し可）
+- [x] `dmg-acid2` がリファレンス画像と一致
+- [x] mooneye `acceptance/ppu/` をできる範囲でパス（難しいものは PROGRESS.md に記録して後回し可）
 
 ### M5: カートリッジ
 - [ ] MBC1 / MBC3 / MBC5 対応
