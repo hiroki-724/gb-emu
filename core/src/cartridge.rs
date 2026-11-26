@@ -240,20 +240,49 @@ impl Cartridge {
             .collect()
     }
 
-    /// バッテリーバックアップ対象の RAM。セーブ機能がないカートリッジでは None
-    pub fn save_ram(&self) -> Option<&[u8]> {
-        if self.has_battery && !self.ram.is_empty() {
-            Some(&self.ram)
-        } else {
-            None
+    /// セーブデータを作る。バッテリーのないカートリッジでは None。
+    ///
+    /// 中身は RAM そのまま。RTC 付きの場合は末尾に 48 バイトの時計情報を付ける
+    /// （BGB や VBA-M と同じ並び: 現在値 5 個 + ラッチ値 5 個を各 4 バイト LE、最後に保存時刻 8 バイト LE）。
+    /// `unix_time` は保存時刻（UNIX 秒）。本体は時計を持たないのでフロントエンドから渡す
+    pub fn save_data(&self, unix_time: u64) -> Option<Vec<u8>> {
+        if !self.has_battery || (self.ram.is_empty() && !self.has_rtc) {
+            return None;
         }
+        let mut data = self.ram.clone();
+        if self.has_rtc {
+            for &value in self.rtc.regs.iter().chain(self.rtc.latched.iter()) {
+                data.extend_from_slice(&(value as u32).to_le_bytes());
+            }
+            data.extend_from_slice(&unix_time.to_le_bytes());
+        }
+        Some(data)
     }
 
-    /// セーブデータを読み込む。長さが違う場合は入る分だけコピーする
-    pub fn load_save_ram(&mut self, data: &[u8]) {
-        let len = data.len().min(self.ram.len());
-        self.ram[..len].copy_from_slice(&data[..len]);
+    /// セーブデータを読み込む。長さが合わない場合は入る分だけ使う。
+    /// RTC 付きで時計情報が入っていれば、保存時刻から `unix_time` までの経過ぶん時計を進める
+    pub fn load_save_data(&mut self, data: &[u8], unix_time: u64) {
+        if !self.has_battery {
+            return;
+        }
+        let ram_len = data.len().min(self.ram.len());
+        self.ram[..ram_len].copy_from_slice(&data[..ram_len]);
         self.ram_dirty = false;
+
+        let footer = &data[ram_len..];
+        if self.has_rtc && footer.len() >= 44 {
+            let field = |index: usize| footer[index * 4];
+            for i in 0..5 {
+                self.rtc.regs[i] = field(i);
+                self.rtc.latched[i] = field(5 + i);
+            }
+            // 保存時刻は 4 バイトだけの形式もある
+            let mut stamp = [0u8; 8];
+            let stamp_len = (footer.len() - 40).min(8);
+            stamp[..stamp_len].copy_from_slice(&footer[40..40 + stamp_len]);
+            let saved_at = u64::from_le_bytes(stamp);
+            self.advance_rtc_seconds(unix_time.saturating_sub(saved_at));
+        }
     }
 
     /// 前回の呼び出し以降に RAM が書き換えられたかを返し、フラグを下ろす
@@ -269,32 +298,21 @@ impl Cartridge {
         }
     }
 
-    /// 電源が切れていた間の経過時間ぶん RTC を進める（フロントエンド用）
-    pub fn advance_rtc_seconds(&mut self, seconds: u64) {
+    /// 電源が切れていた間の経過時間ぶん RTC を進める
+    fn advance_rtc_seconds(&mut self, seconds: u64) {
         if !self.has_rtc || self.rtc.regs[4] & 0x40 != 0 {
             return;
         }
-        // 512 日 = 44,236,800 秒で一周する。巨大な値でも回りすぎないよう上限を付ける
-        for _ in 0..seconds.min(2 * 512 * 86_400) {
+        // 日カウンタは 512 日で一周する。それ以上進めても結果は「あふれフラグが立つ」だけなので、
+        // 極端に大きな値でも時間がかからないよう上限を付ける
+        const WRAP_SECONDS: u64 = 512 * 86_400;
+        let seconds = if seconds > 2 * WRAP_SECONDS {
+            WRAP_SECONDS + seconds % WRAP_SECONDS
+        } else {
+            seconds
+        };
+        for _ in 0..seconds {
             self.rtc.advance_second();
-        }
-    }
-
-    /// RTC の状態（セーブ用）: 動いている時計 5 バイト + ラッチ値 5 バイト
-    pub fn rtc_state(&self) -> Option<[u8; 10]> {
-        if !self.has_rtc {
-            return None;
-        }
-        let mut out = [0u8; 10];
-        out[..5].copy_from_slice(&self.rtc.regs);
-        out[5..].copy_from_slice(&self.rtc.latched);
-        Some(out)
-    }
-
-    pub fn load_rtc_state(&mut self, state: &[u8]) {
-        if self.has_rtc && state.len() >= 10 {
-            self.rtc.regs.copy_from_slice(&state[..5]);
-            self.rtc.latched.copy_from_slice(&state[5..10]);
         }
     }
 
@@ -501,7 +519,56 @@ mod tests {
         cart.write_ram(0xA000, 0x12);
         assert_eq!(cart.read_ram(0xA000), 0x12);
         assert!(cart.take_ram_dirty());
-        assert_eq!(cart.save_ram().unwrap()[0], 0x12);
+        assert_eq!(cart.save_data(0).unwrap()[0], 0x12);
+    }
+
+    #[test]
+    fn save_data_round_trips_and_needs_battery() {
+        let mut cart = Cartridge::new(make_rom(0x03, 4, 0x03)).unwrap();
+        cart.write_rom(0x0000, 0x0A);
+        cart.write_rom(0x6000, 0x01); // RAM バンクを切り替えられるモード
+        cart.write_rom(0x4000, 0x02);
+        cart.write_ram(0xA123, 0x77);
+        let data = cart.save_data(0).unwrap();
+        assert_eq!(data.len(), 0x8000);
+        assert_eq!(data[0x2000 * 2 + 0x123], 0x77);
+
+        let mut restored = Cartridge::new(make_rom(0x03, 4, 0x03)).unwrap();
+        restored.load_save_data(&data, 0);
+        restored.write_rom(0x0000, 0x0A);
+        restored.write_rom(0x6000, 0x01);
+        restored.write_rom(0x4000, 0x02);
+        assert_eq!(restored.read_ram(0xA123), 0x77);
+        assert!(!restored.take_ram_dirty());
+
+        // バッテリーなし（MBC1+RAM）は保存しない
+        let no_battery = Cartridge::new(make_rom(0x02, 4, 0x02)).unwrap();
+        assert!(no_battery.save_data(0).is_none());
+    }
+
+    #[test]
+    fn rtc_advances_by_elapsed_time_between_save_and_load() {
+        let mut cart = Cartridge::new(make_rom(0x10, 4, 0x02)).unwrap();
+        for _ in 0..M_CYCLES_PER_SECOND * 5 {
+            cart.tick();
+        }
+        let data = cart.save_data(1_000_000).unwrap();
+        assert_eq!(data.len(), 0x2000 + 48);
+
+        let mut restored = Cartridge::new(make_rom(0x10, 4, 0x02)).unwrap();
+        // 1 日と 1 時間 1 分 1 秒後に読み込む
+        restored.load_save_data(&data, 1_000_000 + 86_400 + 3_661);
+        restored.write_rom(0x0000, 0x0A);
+        restored.write_rom(0x6000, 0x00);
+        restored.write_rom(0x6000, 0x01);
+        let mut read = |reg: u8| {
+            restored.write_rom(0x4000, reg);
+            restored.read_ram(0xA000)
+        };
+        assert_eq!(read(0x08), 6, "秒");
+        assert_eq!(read(0x09), 1, "分");
+        assert_eq!(read(0x0A), 1, "時");
+        assert_eq!(read(0x0B), 1, "日");
     }
 
     #[test]

@@ -30,8 +30,8 @@
 - [x] mooneye `acceptance/ppu/` をできる範囲でパス（難しいものは PROGRESS.md に記録して後回し可）
 
 ### M5: カートリッジ
-- [ ] MBC1 / MBC3 / MBC5 対応
-- [ ] mooneye `emulator-only/mbc1/` 全パス（mbc2・mbc5 のテストも可能な範囲で）
+- [x] MBC1 / MBC3 / MBC5 対応
+- [x] mooneye `emulator-only/mbc1/` 全パス（mbc2・mbc5 のテストも可能な範囲で）
 - [ ] バッテリーバックアップRAMの保存（web版は localStorage）
 
 ### M6: Web フロントエンド
@@ -77,7 +77,7 @@ PROGRESS.md 進捗レポート
 ## コマンド
 - `cargo test --workspace` — 単体テスト
 - `cargo fmt --all` / `cargo clippy --workspace --all-targets`
-- `cargo run --release -p cli -- <rom> [--serial] [--frames N] [--screenshot out.png]` — 画面なしで実行
+- `cargo run --release -p cli -- <rom> [--serial] [--frames N] [--screenshot out.png] [--save FILE]` — 画面なしで実行
   （`--frames` の既定は 1800 = 約 30 秒ぶん）
 - `scripts/fetch-test-roms.sh [--force]` — テストROMを `test-roms/` に取得（版と SHA-256 を固定）
 - `scripts/run-test-roms.sh [--list-failures] [--filter STR]` → 合否表を出力。
